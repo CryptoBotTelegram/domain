@@ -1,4 +1,4 @@
-from aiogram import Bot, Router
+from aiogram import Bot, Router, Dispatcher
 from shared import TelegramBotMode
 from aiogram.client.default import DefaultBotProperties
 from os import getenv
@@ -12,11 +12,13 @@ load_dotenv()
 class TelegramBot:
     def __init__(self, token, mode: TelegramBotMode):
         self.token = token
+        self._webhook_secret = getenv('WEBHOOK_SECRET')
         self.mode = mode
         self.router = Router()
         self.bot: Optional[Bot] = None
         self.telegram_bot_api_adress = getenv('TELEGRAM_BOT_LOCAL_API_ADRESS')
         self.webhook_url = getenv('WEBHOOK_URL')
+        self.dp: Optional[Dispatcher] = None
 
     async def init_bot(self):
         match self.mode:
@@ -41,6 +43,17 @@ class TelegramBot:
             case _:
                 raise ValueError(f'Unknown mode: {self.mode}')
 
+        self.router = Router()
+        self.dp = Dispatcher()
+        self.dp.include_router(self.router)
+        match self.mode:
+            case TelegramBotMode.POLLING:
+                self.dp.run_polling(self.bot)
+            case TelegramBotMode.TEST:
+                self.dp.run_polling(self.bot)
+                raise ValueError(f'Unknown mode: {self.mode}')
+
+
     async def _get_local_webhook_session(self):
         from aiogram.client.session.aiohttp import AiohttpSession
         from aiogram.client.telegram import TelegramAPIServer
@@ -52,4 +65,5 @@ class TelegramBot:
         await self.bot.delete_webhook()
 
     async def __set_webhook(self, url):
-        await self.bot.set_webhook(url=url, secret_token=self.token, drop_pending_updates=True, allowed_updates=['message', 'callback_query'], max_connections=100)
+        await self.bot.set_webhook(url=url, secret_token=self._webhook_secret, drop_pending_updates=True, allowed_updates=['message', 'callback_query'], max_connections=100)
+

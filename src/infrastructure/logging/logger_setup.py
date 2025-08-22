@@ -12,7 +12,7 @@ __all__ = [
     'debug',
     'error',
     'critical',
-    'TG'
+    'TGLog'
 ]
 
 # Настройки
@@ -57,8 +57,6 @@ tg_handler.setLevel(TG)
 tg_handler.setFormatter(formatter)
 logger.addHandler(tg_handler)
 
-asyncio.create_task(telegram_worker())
-
 info = logging.info
 warn = logging.warning
 debug = logging.debug
@@ -66,5 +64,5 @@ error = logging.error
 critical = logging.critical
 
 
-def TG(message: str):
+def TGLog(message: str):
     logging.log(TG, message)

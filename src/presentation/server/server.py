@@ -1,12 +1,12 @@
-from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.presentation.server.routers.webhook import router as webhook_router
 from os import getenv
 from dotenv import load_dotenv
+from src.main import app
 
 load_dotenv()
 
-server = FastAPI()
+server = app.server
 
 server.include_router(webhook_router)
 
