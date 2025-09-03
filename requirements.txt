@@ -1,1 +1,10 @@
-git+https://github.com/CryptoBotTelegram/shared.git
+shared @ git+https://github.com/CryptoBotTelegram/shared.git
+aiogram
+sqlalchemy
+uvicorn
+fastapi
+pydantic
+dotenv
+faststream
+faststream[redis]
+pymysql

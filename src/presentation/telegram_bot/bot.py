@@ -46,13 +46,17 @@ class TelegramBot:
         self.router = Router()
         self.dp = Dispatcher()
         self.dp.include_router(self.router)
-        match self.mode:
-            case TelegramBotMode.POLLING:
-                self.dp.run_polling(self.bot)
-            case TelegramBotMode.TEST:
-                self.dp.run_polling(self.bot)
-                raise ValueError(f'Unknown mode: {self.mode}')
+        info('Bot initialized!')
 
+        from src.presentation.telegram_bot.handlers.starts_handler import rt as starts_router
+        from src.presentation.telegram_bot.handlers.base_handler import rt as base_router
+        from src.presentation.telegram_bot.handlers.premium_handler import router as premium_router
+        from src.presentation.telegram_bot.handlers.admin_handler import router as admin_router
+        self.dp.include_router(admin_router)
+        self.dp.include_router(starts_router)
+        self.dp.include_router(base_router)
+        self.dp.include_router(premium_router)
+        return self.bot, self.dp
 
     async def _get_local_webhook_session(self):
         from aiogram.client.session.aiohttp import AiohttpSession
@@ -66,4 +70,11 @@ class TelegramBot:
 
     async def __set_webhook(self, url):
         await self.bot.set_webhook(url=url, secret_token=self._webhook_secret, drop_pending_updates=True, allowed_updates=['message', 'callback_query'], max_connections=100)
+        info(f'Webhook set to {url}')
 
+    async def _run_poling(self):
+        if self.mode in (TelegramBotMode.POLLING, TelegramBotMode.TEST):
+            await self.dp.start_polling(self.bot)
+
+    async def get_includes_dispatcher(self):
+        return self.dp

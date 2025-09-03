@@ -1,0 +1,186 @@
+version: '3.8'
+
+networks:
+  bot_network:
+    driver: bridge
+
+volumes:
+  tg_api_data:
+  mariadb_data:
+  redis_data:
+
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    networks:
+      - bot_network
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+  mariadb:
+    image: mariadb:10.11
+    container_name: mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${DB_NAME}
+      MARIADB_USER: ${DB_USER}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "3306:3306"
+    networks:
+      - bot_network
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}" ]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+
+  telegram-bot-api:
+    image: aiogram/telegram-bot-api:latest
+    container_name: telegram_bot_api
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_API_ID=27907240
+      - TELEGRAM_API_HASH=cdd613a303c2b388b483a2a35edcf77b
+      - LOCAL=true
+      - MAX_CONNECTIONS=1000
+      - FILE_SIZE_LIMIT=2000
+      - VERBOSITY=3
+      - TELEGRAM_LOCAL=1
+    command: [ "--local" ]
+    ports:
+      - "8081:8081"
+    networks:
+      - bot_network
+    volumes:
+      - tg_api_data:/var/lib/telegram-bot-api
+
+  monolith:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: monolith
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - DB_HOST=mariadb
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ADMIN_ID=${ADMIN_ID}
+      - TELEGRAM_BOT_LOCAL_API_ADRESS=http://telegram-bot-api:8081
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      - BOT_MODE=${BOT_MODE}
+    ports:
+      - "8841:8841"
+    networks:
+      - bot_network
+    depends_on:
+      redis:
+        condition: service_started
+      mariadb:
+        condition: service_healthy
+      telegram-bot-api:
+        condition: service_started
+    volumes:
+      - .:/app
+      - /app/__pycache__
+
+  user-parser:
+    build:
+      context: ./user_parser
+      dockerfile: Dockerfile
+    container_name: user_parser
+    restart: unless-stopped
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - DB_HOST=mariadb
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_ROOT_PASSWORD}
+    networks:
+      - bot_network
+    depends_on:
+      - redis
+      - mariadb
+
+  api-parser-server:
+    build:
+      context: ./api_parser/server
+      dockerfile: Dockerfile
+    container_name: api_parser_server
+    restart: unless-stopped
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+      - "8000:8000"
+    networks:
+      - bot_network
+    depends_on:
+      - redis
+
+  api-parser-client:
+    build:
+      context: ./api_parser/client
+      dockerfile: Dockerfile
+    container_name: api_parser_client
+    restart: unless-stopped
+    environment:
+      - CMC_API_KEY=${CMC_API_KEY}
+      - TONAPI_KEY=${TONAPI_KEY}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    networks:
+      - bot_network
+    depends_on:
+      - redis
+
+  ai-processor:
+    build:
+      context: ./ai_alerts
+      dockerfile: Dockerfile
+    container_name: ai_processor
+    restart: unless-stopped
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    networks:
+      - bot_network
+    depends_on:
+      - redis
+
+  ai-assistent:
+    build:
+      context: ./ai_assistent
+      dockerfile: Dockerfile
+    container_name: ai_assistent
+    restart: unless-stopped
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    networks:
+      - bot_network
+    depends_on:
+      - redis

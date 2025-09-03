@@ -1,0 +1,10 @@
+uvicorn~=0.29.0
+fastapi~=0.111.0
+dotenv~=0.9.9
+python-dotenv~=1.0.1
+aiogram~=3.9.0
+SQLAlchemy~=2.0.43
+pydantic~=2.5.2
+faststream~=0.5.48
+redis~=6.4.0
+requests~=2.31.0

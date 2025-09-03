@@ -1,0 +1,1 @@
+2025-08-27 20:11:39,653 - ERROR - Redis connection failed: Error 22 connecting to localhost:6379. Удаленный компьютер отклонил это сетевое подключение.
